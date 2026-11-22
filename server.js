@@ -5,25 +5,31 @@ import { fal } from "@fal-ai/client";
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-app.use(express.json({ limit: "2mb" }));
+app.use(express.json({ limit: "10kb" }));
+app.use(express.static("public"));
 
-app.get("/", (req, res) => {
-  res.send("Pelican Video AI está online!");
+app.get("/api/status", (req, res) => {
+  res.json({
+    online: true,
+    app: "Pelican Video AI"
+  });
 });
 
 app.post("/api/generate", async (req, res) => {
   try {
-    const { prompt } = req.body;
+    const { prompt } = req.body || {};
 
-    if (!prompt || typeof prompt !== "string" || prompt.trim().length < 3) {
+    if (typeof prompt !== "string" ||
+        prompt.trim().length < 3 ||
+        prompt.length > 1500) {
       return res.status(400).json({
-        error: "Descreva o vídeo que deseja criar."
+        error: "Descrição inválida."
       });
     }
 
-    if (prompt.length > 1500) {
-      return res.status(400).json({
-        error: "A descrição deve ter até 1500 caracteres."
+    if (!process.env.FAL_KEY) {
+      return res.status(503).json({
+        error: "API ainda não configurada."
       });
     }
 
@@ -32,9 +38,10 @@ app.post("/api/generate", async (req, res) => {
       {
         input: {
           prompt: prompt.trim(),
+          duration: 2,
+          resolution: "720p",
           aspect_ratio: "16:9"
-        },
-        logs: true
+        }
       }
     );
 
@@ -44,14 +51,14 @@ app.post("/api/generate", async (req, res) => {
     });
 
   } catch (error) {
-    console.error("Erro na geração:", error);
+    console.error("Fal API error:", error);
 
     res.status(500).json({
-      error: "Não foi possível gerar o vídeo. Verifique a API e os créditos."
+      error: "Não foi possível gerar o vídeo."
     });
   }
 });
 
 app.listen(PORT, () => {
-  console.log(`Pelican online na porta ${PORT}`);
+  console.log("Pelican Video AI online!");
 });
